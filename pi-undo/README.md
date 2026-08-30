@@ -7,7 +7,7 @@ A [pi](https://pi.dev) extension that rewinds both conversation context and file
 - `/undo` opens a picker containing the user messages on the active branch.
 - Selecting a message removes that message and everything after it from the next model prompt.
 - The selected prompt text is put back in the editor so it can be changed and resubmitted.
-- Changes made by pi's `edit` and `write` tools are restored to their state before the selected turn.
+- Changes made by pi's `edit` and `write` tools are restored to their state before the selected turn; in UI modes, pi-undo asks for confirmation first when files are affected.
 - `/undo-recover` restores the conversation branch and file state from the most recent undo.
 - Repeated undos can be recovered one at a time, as long as the conversation has not continued.
 

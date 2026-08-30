@@ -103,6 +103,8 @@ test("/undo branches and restores files while /undo-recover unwinds repeated und
     const eventHandlers = new Map<string, Array<(event: any, ctx: any) => Promise<any> | any>>();
     const commands = new Map<string, { handler: (argument: string, ctx: any) => Promise<void> }>();
     const notifications: string[] = [];
+    const confirmations: Array<{ title: string; message: string }> = [];
+    let confirmResult = false;
     let editorText = "";
     let pickerOptions: string[] = [];
 
@@ -134,6 +136,10 @@ test("/undo branches and restores files while /undo-recover unwinds repeated und
         async select(_title: string, options: string[]) {
           pickerOptions = options;
           return options.at(-1);
+        },
+        async confirm(title: string, message: string) {
+          confirmations.push({ title, message });
+          return confirmResult;
         },
         notify(message: string) {
           notifications.push(message);
@@ -202,6 +208,7 @@ test("/undo branches and restores files while /undo-recover unwinds repeated und
 
     await commands.get("undo")!.handler("user-2", context);
     assert.equal(await readFile(file, "utf8"), "after");
+    assert.deepEqual(confirmations, [], "an undo without file changes must not ask for confirmation");
     assert.deepEqual(
       manager
         .getBranch()
@@ -212,6 +219,25 @@ test("/undo branches and restores files while /undo-recover unwinds repeated und
     );
 
     await commands.get("undo")!.handler("user-1", context);
+    assert.equal(await readFile(file, "utf8"), "after", "declining must leave the file unchanged");
+    assert.deepEqual(confirmations, [
+      {
+        title: "Revert file changes?",
+        message: "This undo will also revert 1 file to its earlier state. Continue?",
+      },
+    ]);
+    assert.deepEqual(
+      manager
+        .getBranch()
+        .filter((entry) => entry.type === "message" && entry.message.role === "user")
+        .map((entry) => entry.id),
+      ["user-1"],
+      "declining file restoration must cancel the conversation undo",
+    );
+
+    confirmResult = true;
+    await commands.get("undo")!.handler("user-1", context);
+    assert.equal(confirmations.length, 2);
     assert.equal(await readFile(file, "utf8"), "before");
     assert.equal(
       await readFile(commandSideEffect, "utf8"),

@@ -313,6 +313,18 @@ export default function piUndo(pi: ExtensionAPI): void {
         undoneTurns.map(({ entry }) => entry.id),
       );
 
+      if (undoFiles.length > 0 && ctx.hasUI) {
+        const fileCount = undoFiles.length;
+        const confirmed = await ctx.ui.confirm(
+          "Revert file changes?",
+          `This undo will also revert ${fileCount} file${fileCount === 1 ? "" : "s"} to ${fileCount === 1 ? "its" : "their"} earlier state. Continue?`,
+        );
+        if (!confirmed) {
+          ctx.ui.notify("Undo cancelled", "info");
+          return;
+        }
+      }
+
       let redoFiles: PathSnapshot[];
       try {
         redoFiles = await captureCurrentFiles(store, undoFiles);
