@@ -7,6 +7,7 @@ A collection of extensions for the [pi coding agent](https://pi.dev). Each exten
 | Extension | Description |
 | --- | --- |
 | [pi-undo](./pi-undo/) | Rewind conversation context and restore file changes made by pi's `edit` and `write` tools. |
+| [pi-work-timer](./pi-work-timer/) | Show elapsed time beside the working indicator and record the final duration. |
 
 ## Install from this checkout
 
@@ -18,6 +19,7 @@ For a Git checkout, this repository recommends symlinking each extension into pi
 cd /path/to/pi-extensions
 mkdir -p ~/.pi/agent/extensions
 ln -s "$PWD/pi-undo/src" ~/.pi/agent/extensions/pi-undo
+ln -s "$PWD/pi-work-timer/src" ~/.pi/agent/extensions/pi-work-timer
 ```
 
 Pi auto-discovers extensions under `~/.pi/agent/extensions/`, making them available in every project.
@@ -38,6 +40,7 @@ Pi can also reference a local package without copying it:
 ```bash
 cd /path/to/pi-extensions
 pi install "$PWD/pi-undo"
+pi install "$PWD/pi-work-timer"
 ```
 
 This has the same update-in-place behavior after `git pull`. Choose either the symlink or local-package method; using both would load the extension twice.
@@ -47,7 +50,7 @@ This has the same update-in-place behavior after `git pull`. Choose either the s
 Install dependencies and run checks from an individual extension directory:
 
 ```bash
-cd pi-undo
+cd <extension-directory>
 npm install
 npm run check
 ```
