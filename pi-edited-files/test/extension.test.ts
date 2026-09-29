@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -273,6 +273,18 @@ test("the widget shows the current net diff and restores its baseline with the s
     assert.ok(alignedLines[1]?.endsWith("+1   -0 "));
     assert.ok(alignedLines[2]?.endsWith("+123 -12"));
 
+    const failedFile = join(project, "failed.ts");
+    await writeFile(failedFile, "sensitive baseline from failed write\n", "utf8");
+    const blobDirectory = join(
+      root,
+      "agent",
+      "extension-data",
+      "pi-edited-files",
+      "session-1",
+      "blobs",
+    );
+    const blobsBeforeFailedWrite = (await readdir(blobDirectory)).sort();
+
     await harness.emit("tool_call", {
       toolName: "write",
       toolCallId: "write-failed",
@@ -287,6 +299,7 @@ test("the widget shows the current net diff and restores its baseline with the s
       isError: true,
     });
     assert.equal(failedResult, undefined);
+    assert.deepEqual((await readdir(blobDirectory)).sort(), blobsBeforeFailedWrite);
     assert.equal(harness.getWidget()!({}, plainTheme).render(50).length, 3);
 
     const statePath = join(

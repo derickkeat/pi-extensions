@@ -8,6 +8,10 @@ export type BaselineSnapshot =
   | { kind: "missing" }
   | { kind: "file"; blob: string };
 
+export type BaselineCapture =
+  | { kind: "missing" }
+  | { kind: "file"; content: Buffer };
+
 interface BaselineRecord {
   path: string;
   snapshot: BaselineSnapshot;
@@ -116,21 +120,24 @@ export class BaselineStore {
     return this.baselines.get(path);
   }
 
-  async capture(path: string): Promise<BaselineSnapshot> {
+  async capture(path: string): Promise<BaselineCapture> {
     try {
-      const content = await readFile(path);
-      return { kind: "file", blob: await writeBlob(this.blobDirectory, content) };
+      return { kind: "file", content: await readFile(path) };
     } catch (error) {
       if (isErrno(error, "ENOENT")) return { kind: "missing" };
       throw error;
     }
   }
 
-  async ensure(path: string, snapshot: BaselineSnapshot): Promise<BaselineSnapshot> {
+  async ensure(path: string, capture: BaselineCapture): Promise<BaselineSnapshot> {
     return this.enqueue(async () => {
       const existing = this.baselines.get(path);
       if (existing) return existing;
 
+      const snapshot: BaselineSnapshot =
+        capture.kind === "missing"
+          ? capture
+          : { kind: "file", blob: await writeBlob(this.blobDirectory, capture.content) };
       this.baselines.set(path, snapshot);
       try {
         await this.save();

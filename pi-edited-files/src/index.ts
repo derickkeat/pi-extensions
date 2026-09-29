@@ -14,7 +14,7 @@ import {
   type Theme,
 } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import { BaselineStore, type BaselineSnapshot } from "./store.ts";
+import { BaselineStore, type BaselineCapture, type BaselineSnapshot } from "./store.ts";
 
 const DETAILS_KEY = "piEditedFiles";
 const WIDGET_KEY = "pi-edited-files";
@@ -41,6 +41,7 @@ interface PendingMutation {
   path: string;
   order: number;
   baseline?: BaselineSnapshot;
+  capture?: BaselineCapture;
   captureError?: string;
 }
 
@@ -420,8 +421,8 @@ export default function piEditedFiles(pi: ExtensionAPI): void {
       }
 
       try {
-        const baseline = await store.capture(path);
-        pending.set(event.toolCallId, { path, order, baseline });
+        const capture = await store.capture(path);
+        pending.set(event.toolCallId, { path, order, capture });
       } catch (error) {
         pending.set(event.toolCallId, {
           path,
@@ -454,20 +455,21 @@ export default function piEditedFiles(pi: ExtensionAPI): void {
       }
     }
 
-    const baseline = store.get(path) ?? mutation?.baseline;
+    let baseline = store.get(path) ?? mutation?.baseline;
+    if (!baseline && mutation?.capture) {
+      try {
+        baseline = await store.ensure(path, mutation.capture);
+      } catch (error) {
+        reportFileError(path, error, ctx);
+        return;
+      }
+    }
     if (!baseline) {
       reportFileError(
         path,
         new Error(mutation?.captureError ?? storeError ?? "the pre-edit baseline was not captured"),
         ctx,
       );
-      return;
-    }
-
-    try {
-      await store.ensure(path, baseline);
-    } catch (error) {
-      reportFileError(path, error, ctx);
       return;
     }
 
