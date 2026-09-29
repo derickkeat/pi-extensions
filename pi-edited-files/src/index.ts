@@ -352,7 +352,9 @@ export default function piEditedFiles(pi: ExtensionAPI): void {
 
   const updateWidget = (ctx: ExtensionContext): void => {
     if (ctx.mode !== "tui") return;
-    const availableFiles = [...changes.values()].filter((file) => file.available);
+    const availableFiles = [...changes.values()].filter(
+      (file) => file.available && (file.added !== 0 || file.removed !== 0),
+    );
     if (availableFiles.length === 0) {
       ctx.ui.setWidget(WIDGET_KEY, undefined);
       return;
