@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { lstat, readFile, readlink, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   generateUnifiedPatch,
@@ -119,10 +119,25 @@ function safeSessionDirectoryName(sessionId: string): string {
   return sessionId.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
-/** Resolve paths like pi's local edit and write tools, including @ and ~ prefixes. */
-export function resolveMutationPath(rawPath: string, cwd: string): string {
+function isErrno(error: unknown, code: string): boolean {
+  return error instanceof Error && "code" in error && error.code === code;
+}
+
+export function normalizeWindowsShellPath(input: string, platform = process.platform): string {
+  if (platform !== "win32" || !input.startsWith("/") || input.startsWith("//") || input.includes("\\")) {
+    return input;
+  }
+  const match = input.match(/^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i);
+  if (!match) return input;
+  const suffix = match[2]?.replaceAll("/", "\\");
+  return `${match[1]!.toUpperCase()}:\\${suffix ?? ""}`;
+}
+
+/** Resolve paths like pi's local edit and write tools, then follow existing symlinks. */
+export async function resolveMutationPath(rawPath: string, cwd: string): Promise<string> {
   let input = rawPath.startsWith("@") ? rawPath.slice(1) : rawPath;
   input = input.replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ");
+  input = normalizeWindowsShellPath(input);
 
   if (input === "~") input = homedir();
   else if (input.startsWith("~/") || (process.platform === "win32" && input.startsWith("~\\"))) {
@@ -130,7 +145,49 @@ export function resolveMutationPath(rawPath: string, cwd: string): string {
   }
 
   const localPath = input.startsWith("file://") ? fileURLToPath(input) : input;
-  return normalize(isAbsolute(localPath) ? localPath : resolve(cwd, localPath));
+  const absolute = normalize(isAbsolute(localPath) ? localPath : resolve(cwd, localPath));
+  return canonicalizePotentialPath(absolute);
+}
+
+async function canonicalizePotentialPath(input: string, depth = 0): Promise<string> {
+  if (depth > 32) throw new Error(`Too many symbolic links while resolving ${input}`);
+
+  try {
+    return await realpath(input);
+  } catch (error) {
+    if (!isErrno(error, "ENOENT")) throw error;
+  }
+
+  // realpath() also fails for a dangling final symlink. Follow its target because
+  // writeFile() would write through that link rather than replacing the link itself.
+  try {
+    const stat = await lstat(input);
+    if (stat.isSymbolicLink()) {
+      const target = await readlink(input);
+      const targetPath = isAbsolute(target) ? target : resolve(dirname(input), target);
+      return canonicalizePotentialPath(targetPath, depth + 1);
+    }
+  } catch (error) {
+    if (!isErrno(error, "ENOENT")) throw error;
+  }
+
+  // The final path may not exist while one of its parents is a symlink. Resolve
+  // the nearest existing ancestor and then append the missing path segments.
+  const suffix: string[] = [];
+  let cursor = input;
+  while (true) {
+    const parent = dirname(cursor);
+    if (parent === cursor) return input;
+    suffix.push(basename(cursor));
+    cursor = parent;
+
+    try {
+      const resolvedAncestor = await realpath(cursor);
+      return resolve(resolvedAncestor, ...suffix.reverse());
+    } catch (error) {
+      if (!isErrno(error, "ENOENT")) throw error;
+    }
+  }
 }
 
 function displayPath(path: string, cwd: string): string {
@@ -354,7 +411,7 @@ export default function piEditedFiles(pi: ExtensionAPI): void {
     if (!store) return;
 
     try {
-      const path = resolveMutationPath(rawPath, ctx.cwd);
+      const path = await resolveMutationPath(rawPath, ctx.cwd);
       const order = changes.get(path)?.order ?? nextOrder++;
       const savedBaseline = store.get(path);
       if (savedBaseline) {
@@ -391,7 +448,7 @@ export default function piEditedFiles(pi: ExtensionAPI): void {
       const rawPath = rawMutationPath(event.input);
       if (!rawPath) return;
       try {
-        path = resolveMutationPath(rawPath, ctx.cwd);
+        path = await resolveMutationPath(rawPath, ctx.cwd);
       } catch {
         return;
       }

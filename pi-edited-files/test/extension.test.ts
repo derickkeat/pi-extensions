@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
-import piEditedFiles, { countChangedLines, countPatchLines } from "../src/index.ts";
+import piEditedFiles, {
+  countChangedLines,
+  countPatchLines,
+  normalizeWindowsShellPath,
+  resolveMutationPath,
+} from "../src/index.ts";
 
 type Handler = (event: any, ctx: any) => unknown;
 type WidgetFactory = (tui: unknown, theme: unknown) => { render(width: number): string[] };
@@ -102,6 +107,34 @@ function toolResultEntry(details: unknown): SessionEntry {
     },
   } as SessionEntry;
 }
+
+test("mutation paths use one identity across symlink aliases", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pi-edited-files-path-test-"));
+  try {
+    const target = join(root, "target");
+    const alias = join(root, "alias");
+    await mkdir(target);
+    await symlink(target, alias, process.platform === "win32" ? "junction" : "dir");
+    await writeFile(join(target, "existing.ts"), "content\n", "utf8");
+
+    assert.equal(
+      await resolveMutationPath(join(alias, "existing.ts"), root),
+      await resolveMutationPath(join(target, "existing.ts"), root),
+    );
+    assert.equal(
+      await resolveMutationPath(join(alias, "new", "file.ts"), root),
+      await resolveMutationPath(join(target, "new", "file.ts"), root),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Windows shell paths are converted to drive paths", () => {
+  assert.equal(normalizeWindowsShellPath("/c/project/file.ts", "win32"), "C:\\project\\file.ts");
+  assert.equal(normalizeWindowsShellPath("/mnt/c/project/file.ts", "win32"), "C:\\project\\file.ts");
+  assert.equal(normalizeWindowsShellPath("/cygdrive/c/project/file.ts", "win32"), "C:\\project\\file.ts");
+});
 
 test("line changes count additions and removals", () => {
   assert.deepEqual(countChangedLines("one\ntwo\n", "one\nthree\nfour\n"), {
