@@ -273,6 +273,18 @@ test("the widget shows the current net diff and restores its baseline with the s
     assert.ok(alignedLines[1]?.endsWith("+1   -0 "));
     assert.ok(alignedLines[2]?.endsWith("+123 -12"));
 
+    await writeFile(largeFile, largeBefore, "utf8");
+    await harness.emit("agent_settled");
+    const remainingLines = harness.getWidget()!({}, plainTheme).render(50);
+    assert.equal(remainingLines.length, 2);
+    assert.ok(remainingLines[0]?.includes("Edited files (1)"));
+    assert.ok(remainingLines[1]?.includes("src/example.ts"));
+    assert.ok(!remainingLines.some((line) => line.includes("src/large.ts")));
+
+    await writeFile(largeFile, largeAfter, "utf8");
+    await harness.emit("agent_settled");
+    assert.ok(harness.getWidget()!({}, plainTheme).render(50)[2]?.includes("src/large.ts"));
+
     const failedFile = join(project, "failed.ts");
     await writeFile(failedFile, "sensitive baseline from failed write\n", "utf8");
     const blobDirectory = join(
@@ -321,11 +333,33 @@ test("the widget shows the current net diff and restores its baseline with the s
     await restored.emit("session_start", { reason: "resume" });
     assert.ok(restored.getWidget()!({}, plainTheme).render(50)[1]?.endsWith("+1 -0"));
 
+    await restored.emit("tool_call", {
+      toolName: "write",
+      toolCallId: "write-revert",
+      input: { path: "src/example.ts", content: "one\ntwo\n" },
+    });
     await writeFile(file, "one\ntwo\n", "utf8");
+    await restored.emit("tool_result", {
+      toolName: "write",
+      toolCallId: "write-revert",
+      input: { path: "src/example.ts", content: "one\ntwo\n" },
+      content: [],
+      details: undefined,
+      isError: false,
+    });
+    assert.equal(restored.getWidget(), undefined, "returning to the baseline must hide the file");
+
+    const resumedAtBaseline = createHarness("session-1", [persistedEntry]);
+    resumedAtBaseline.context.cwd = project;
+    piEditedFiles(resumedAtBaseline.api);
+    await resumedAtBaseline.emit("session_start", { reason: "resume" });
+    assert.equal(resumedAtBaseline.getWidget(), undefined);
+
+    await writeFile(file, "one\nthree\n", "utf8");
     await restored.emit("agent_settled");
     assert.ok(
-      restored.getWidget()!({}, plainTheme).render(50)[1]?.endsWith("+0 -0"),
-      "returning to the baseline must clear the net counts without removing the edited file",
+      restored.getWidget()!({}, plainTheme).render(50)[1]?.endsWith("+1 -1"),
+      "a tracked file must reappear if it changes again",
     );
 
     const forked = createHarness("session-2", [persistedEntry]);

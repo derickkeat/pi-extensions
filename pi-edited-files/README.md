@@ -14,7 +14,7 @@ After a successful `edit` or `write` tool call, the widget shows every affected 
 
 The heading is rendered as a border to separate the file summary from the running-agent output. Files are appended in the order they are first successfully edited; editing a listed file again does not move it. Additions and removals use separate left-aligned columns within a fixed area on the right, so both signs stay aligned as counts gain digits.
 
-The counts are the current net diff against each file's contents immediately before its first successful edit in the session. Repeated edits and reversions therefore update the totals instead of accumulating tool activity. A file remains listed as `+0 -0` if its contents return to the baseline.
+The counts are the current net diff against each file's contents immediately before its first successful edit in the session. Repeated edits and reversions therefore update the totals instead of accumulating tool activity. A file disappears from the list if its contents return to the baseline, and reappears if it changes again.
 
 The file list is stored alongside tool-result details, while baseline contents are kept in user-only files under:
 
