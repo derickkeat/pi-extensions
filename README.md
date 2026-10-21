@@ -14,30 +14,7 @@ A collection of extensions for the [pi coding agent](https://pi.dev). Each exten
 
 > **Security:** Pi extensions execute with your user account's full permissions. Review an extension before enabling it.
 
-For a Git checkout, this repository recommends symlinking each extension into pi's global extension directory:
-
-```bash
-cd /path/to/pi-extensions
-mkdir -p ~/.pi/agent/extensions
-ln -s "$PWD/pi-edited-files/src" ~/.pi/agent/extensions/pi-edited-files
-ln -s "$PWD/pi-undo/src" ~/.pi/agent/extensions/pi-undo
-ln -s "$PWD/pi-work-timer/src" ~/.pi/agent/extensions/pi-work-timer
-```
-
-Pi auto-discovers extensions under `~/.pi/agent/extensions/`, making them available in every project.
-
-A symlink is not an automatic updater by itself. It keeps pi pointed at the files in this checkout, so pulling changes updates the extension in place without copying or reinstalling it:
-
-```bash
-cd /path/to/pi-extensions
-git pull --ff-only
-```
-
-After pulling, run `/reload` in pi (or restart pi) to load the updated code.
-
-### Local-package alternative
-
-Pi can also reference a local package without copying it:
+From this checkout, install each package by its local path. Pi records the path and loads that directory directly; it does not copy the files:
 
 ```bash
 cd /path/to/pi-extensions
@@ -46,7 +23,16 @@ pi install "$PWD/pi-undo"
 pi install "$PWD/pi-work-timer"
 ```
 
-This has the same update-in-place behavior after `git pull`. Choose either the symlink or local-package method; using both would load the extension twice.
+That makes them available in every project. Pulling this checkout updates the installed extensions in place. `pi update --extensions` does not pull local packages:
+
+```bash
+cd /path/to/pi-extensions
+git pull --ff-only
+```
+
+After pulling, run `/reload` in pi (or restart pi) to load the updated code.
+
+Do not also symlink these packages into `~/.pi/agent/extensions/`. Pi would load each extension twice.
 
 ## Development
 

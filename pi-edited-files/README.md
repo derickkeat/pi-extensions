@@ -28,14 +28,13 @@ The widget is only shown in the interactive TUI. It starts tracking a file when 
 
 ## Install
 
-From this directory, symlink the source directory into pi's global extension folder:
+From this directory, install the package by its local path. Pi records the path and loads this directory directly:
 
 ```bash
-mkdir -p ~/.pi/agent/extensions
-ln -s "$(pwd)/src" ~/.pi/agent/extensions/pi-edited-files
+pi install "$(pwd)"
 ```
 
-Do not also install the same checkout with `pi install`, or pi will load the extension twice.
+Do not also symlink `src` into `~/.pi/agent/extensions/`, or pi will load the extension twice.
 
 To try it for one run instead:
 

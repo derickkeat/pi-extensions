@@ -22,14 +22,13 @@ pi-work-timer only changes the interactive TUI. It has no effect in print, JSON,
 
 ## Install
 
-From this directory, symlink the source directory into pi's global extension folder:
+From this directory, install the package by its local path. Pi records the path and loads this directory directly:
 
 ```bash
-mkdir -p ~/.pi/agent/extensions
-ln -s "$(pwd)/src" ~/.pi/agent/extensions/pi-work-timer
+pi install "$(pwd)"
 ```
 
-Do not also install the same checkout with `pi install`, or pi will load the extension twice.
+Do not also symlink `src` into `~/.pi/agent/extensions/`, or pi will load the extension twice.
 
 To try it for one run instead:
 

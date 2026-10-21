@@ -15,14 +15,13 @@ The abandoned conversation is not deleted. pi-undo uses pi's session tree withou
 
 ## Install
 
-From this checkout, symlink the source directory into pi's global extension folder. This keeps the checkout as the source of truth:
+From this directory, install the package by its local path. Pi records the path and loads this directory directly, so the checkout stays the source of truth:
 
 ```bash
-mkdir -p ~/.pi/agent/extensions
-ln -s "$(pwd)/src" ~/.pi/agent/extensions/pi-undo
+pi install "$(pwd)"
 ```
 
-Do not also install the same checkout with `pi install`, or pi will load the extension twice.
+Do not also symlink `src` into `~/.pi/agent/extensions/`, or pi will load the extension twice.
 
 To try it for one run instead:
 
