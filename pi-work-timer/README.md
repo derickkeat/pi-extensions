@@ -16,7 +16,7 @@ After the agent fully settles, a transcript entry records the total:
 Worked for 1m 5s
 ```
 
-The timer covers the complete agent run, including tool calls, automatic retries, compaction retries, and queued continuations. The final entry is stored in the session but does not participate in model context.
+The timer covers the complete agent run, including tool calls, automatic retries, compaction retries, and queued continuations. The final line is stored in the session and included in HTML and JSONL exports. It does not participate in model context.
 
 pi-work-timer only changes the interactive TUI. It has no effect in print, JSON, or RPC modes.
 
